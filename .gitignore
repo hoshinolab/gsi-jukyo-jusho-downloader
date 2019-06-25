@@ -15,3 +15,4 @@
 # for test
 /test_output
 *.zip
+*.csv
