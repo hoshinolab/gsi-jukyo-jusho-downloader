@@ -1,11 +1,18 @@
 package main
 
 import (
+	"archive/zip"
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +32,7 @@ func main() {
 
 	fmt.Println("Output destination directory: " + *out)
 	outdir = *out
+
 	if *noDownload {
 		fmt.Println("NO DOWNLOAD MODE")
 	} else {
@@ -43,6 +51,54 @@ func main() {
 				time.Sleep(2000 * time.Millisecond)
 			}
 		})
+	}
+
+	if *noUnzip {
+		fmt.Println("NO UNZIP MODE")
+	} else {
+		// unzip
+		files, _ := ioutil.ReadDir(outdir)
+		for _, file := range files {
+			if strings.Contains(file.Name(), ".zip")  {
+				zp := path.Join(outdir, file.Name())
+				extractCSV(zp)
+			}
+		}
+		fmt.Println("========================")
+
+		//create concat CSV
+		ut := time.Now().Unix()
+		uts := strconv.FormatInt(ut, 10)
+		ccf := uts+"_jukyo-jusho-concat.csv"
+		ccp := path.Join(outdir, ccf)
+		concatCSV, err := os.OpenFile(ccp, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		defer concatCSV.Close()
+
+		// list up concat unzipped csv
+		files, _ = ioutil.ReadDir(outdir)
+		for _, file := range files {
+			if strings.Contains(file.Name(), ".csv") && !strings.Contains(file.Name(), "concat") {
+
+				//add csv data to concat CSV
+				cp := path.Join(outdir, file.Name())
+				cf, err := os.Open(cp)
+				fmt.Println("open: " + cp)
+				if err != nil {
+					log.Fatal(err)
+					return
+				}
+
+				s := bufio.NewScanner(cf)
+				for s.Scan() {
+					fmt.Fprintln(concatCSV, s.Text())
+				}
+				fmt.Println("close: " + cp)
+			}
+		}
 	}
 }
 
@@ -98,4 +154,37 @@ func downloadAndWait(saveFileName string, url string) error {
 	fmt.Println("Done. Waiting")
 	time.Sleep(2000 * time.Millisecond)
 	return err
+}
+
+func extractCSV(src string) error {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	for _, f := range r.File {
+		fn := f.FileInfo().Name()
+		if strings.Contains(fn, ".csv") {
+			fmt.Println(fn)
+			rf, err := f.Open()
+			if err != nil {
+				return err
+			}
+			defer rf.Close()
+
+			buf := make([]byte, f.UncompressedSize)
+			_, err = io.ReadFull(rf, buf)
+			if err != nil {
+				return err
+			}
+
+			path := filepath.Join(outdir, fn)
+			err = ioutil.WriteFile(path, buf, f.Mode())
+			if err != nil {
+				return err
+			}
+
+		}
+	}
+	return nil
 }
