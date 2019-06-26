@@ -16,6 +16,6 @@
 
 ## Build
 
-1. Clone this repository in your `GOPATH`
-2. `$ go build .\cmd\gsi-downloader\main.go`
+1. Clone this repository in your `$GOPATH/src`
+2. `$ go build ./cmd/gsi-downloader/main.go -o gsi-downloader`
 
