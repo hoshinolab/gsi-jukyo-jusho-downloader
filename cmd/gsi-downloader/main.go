@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -26,9 +27,10 @@ var outdir string
 func main() {
 	// output directory from command line arg
 	var (
-		out        = flag.String("outdir", "./", "Output destination")
-		noDownload = flag.Bool("nodownload", false, "When you already have zip files, designate this flag. Default is false.")
-		noUnzip    = flag.Bool("nounzip", false, "When you do NOT want to extract zip files, designate this flag. Default is false.")
+		out         = flag.String("outdir", "./", "Output destination")
+		noDownload  = flag.Bool("nodownload", false, "When you already have zip files, designate this flag. Default is false.")
+		noUnzip     = flag.Bool("nounzip", false, "When you do NOT want to extract zip files, designate this flag. Default is false.")
+		delTmpFiles = flag.Bool("del", false, "When you want to delete temporary data (zip/csv), designate this flag. Default is false.")
 	)
 	flag.Parse()
 
@@ -84,6 +86,11 @@ func main() {
 		files, _ = ioutil.ReadDir(outdir)
 		for _, file := range files {
 			if strings.Contains(file.Name(), ".csv") && !strings.Contains(file.Name(), "concat") {
+				srcbyte := []byte(file.Name())
+				rx := regexp.MustCompile(".+_(.+)_(.+).csv")
+				match := rx.FindSubmatch(srcbyte)
+				prefName := string(match[1])
+				cityName := string(match[2])
 
 				//add csv data to concat CSV
 				cp := path.Join(outdir, file.Name())
@@ -96,9 +103,23 @@ func main() {
 
 				s := bufio.NewScanner(transform.NewReader(cf, japanese.ShiftJIS.NewDecoder()))
 				for s.Scan() {
-					fmt.Fprintln(concatCSV, s.Text())
+					sl := strings.SplitN(s.Text(), ",", 2)
+					writestr := sl[0] + "," + prefName + "," + cityName + "," + sl[1]
+					fmt.Fprintln(concatCSV, writestr)
 				}
 				fmt.Println("close: " + cp)
+			}
+		}
+	}
+	if *delTmpFiles {
+		fmt.Println("DELETE TMP FILES")
+		files, _ := ioutil.ReadDir(outdir)
+		for _, file := range files {
+			if strings.Contains(file.Name(), ".csv") && !strings.Contains(file.Name(), "concat") || strings.Contains(file.Name(), ".zip") {
+				rp := path.Join(outdir, file.Name())
+				if err := os.RemoveAll(rp); err != nil {
+					fmt.Println(err)
+				}
 			}
 		}
 	}
@@ -112,13 +133,13 @@ func getPref(url string, prefName string) {
 	}
 	doc.Find("a").Each(func(_ int, s *goquery.Selection) {
 		url, _ := s.Attr("href")
-		text := s.Text()
+		cityName := s.Text()
 		if strings.Contains(url, ".zip") {
 			fn := getZIPFileName(url)
 			num := strings.Replace(fn, ".zip", "", -1)
 			fu := getZIPFileURL(fn)
-			fmt.Println(prefName + text + fu)
-			downloadAndWait(num+"_"+prefName+text+".zip", fu)
+			fmt.Println(prefName + cityName + fu)
+			downloadAndWait(num+"_"+prefName+"_"+cityName+".zip", fu)
 		}
 	})
 }
@@ -159,6 +180,12 @@ func downloadAndWait(saveFileName string, url string) error {
 }
 
 func extractCSV(src string) error {
+	srcbyte := []byte(src)
+	rx := regexp.MustCompile("\\d+_(.+)_(.+).zip")
+	match := rx.FindSubmatch(srcbyte)
+	prefName := string(match[1])
+	cityName := string(match[2])
+
 	r, err := zip.OpenReader(src)
 	if err != nil {
 		return err
@@ -180,7 +207,8 @@ func extractCSV(src string) error {
 				return err
 			}
 
-			path := filepath.Join(outdir, fn)
+			savefn := strings.Replace(fn, ".csv", "_"+prefName+"_"+cityName+".csv", -1)
+			path := filepath.Join(outdir, savefn)
 			err = ioutil.WriteFile(path, buf, f.Mode())
 			if err != nil {
 				return err
