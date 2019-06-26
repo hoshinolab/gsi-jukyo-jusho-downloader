@@ -28,9 +28,29 @@
   pruneopts = "UT"
   revision = "3b0461eec859c4b73bb64fdc8285971fd33e3938"
 
+[[projects]]
+  digest = "1:c7da72aff55db0b6f70757b3b7a9b867931192033eaab200fc5ae222ffda251c"
+  name = "golang.org/x/text"
+  packages = [
+    "encoding",
+    "encoding/internal",
+    "encoding/internal/identifier",
+    "encoding/japanese",
+    "internal/gen",
+    "transform",
+    "unicode/cldr",
+  ]
+  pruneopts = "UT"
+  revision = "342b2e1fbaa52c93f31447ad2c6abc048c63e475"
+  version = "v0.3.2"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  input-imports = ["github.com/PuerkitoBio/goquery"]
+  input-imports = [
+    "github.com/PuerkitoBio/goquery",
+    "golang.org/x/text/encoding/japanese",
+    "golang.org/x/text/transform",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
 )
 
 var outdir string
@@ -59,7 +61,7 @@ func main() {
 		// unzip
 		files, _ := ioutil.ReadDir(outdir)
 		for _, file := range files {
-			if strings.Contains(file.Name(), ".zip")  {
+			if strings.Contains(file.Name(), ".zip") {
 				zp := path.Join(outdir, file.Name())
 				extractCSV(zp)
 			}
@@ -69,7 +71,7 @@ func main() {
 		//create concat CSV
 		ut := time.Now().Unix()
 		uts := strconv.FormatInt(ut, 10)
-		ccf := uts+"_jukyo-jusho-concat.csv"
+		ccf := uts + "_jukyo-jusho-concat.csv"
 		ccp := path.Join(outdir, ccf)
 		concatCSV, err := os.OpenFile(ccp, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
@@ -92,7 +94,7 @@ func main() {
 					return
 				}
 
-				s := bufio.NewScanner(cf)
+				s := bufio.NewScanner(transform.NewReader(cf, japanese.ShiftJIS.NewDecoder()))
 				for s.Scan() {
 					fmt.Fprintln(concatCSV, s.Text())
 				}
